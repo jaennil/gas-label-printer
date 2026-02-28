@@ -294,7 +294,7 @@
     if (!currentProduct) return;
     const canvas = buildLabelCanvas(currentProduct);
     canvas.toBlob(async blob => {
-      const file = new File([blob], 'label.png', { type: 'image/png' });
+      const file = new File([blob], 'label.jpg', { type: 'image/jpeg' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: currentProduct.name });
@@ -303,9 +303,9 @@
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = 'label.png'; a.click();
+      a.href = url; a.download = 'label.jpg'; a.click();
       URL.revokeObjectURL(url);
-    }, 'image/png');
+    }, 'image/jpeg', 0.95);
   }
 
   // ── Утилиты ─────────────────────────────────────────────────────
