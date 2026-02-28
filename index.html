@@ -40,20 +40,6 @@
       font-size: 14px;
     }
 
-    #product-card {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 16px;
-      display: none;
-    }
-
-    .product-name    { font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.4; margin-bottom: 8px; }
-    .product-meta    { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
-    .product-price   { font-size: 28px; font-weight: 700; color: #1a73e8; }
-    .product-article { font-size: 13px; color: #999; }
-    .product-gtin    { font-size: 12px; color: #bbb; margin-top: 4px; }
 
     .btn-print {
       width: 100%; padding: 16px;
@@ -81,12 +67,6 @@
       cursor: pointer; margin-bottom: 10px;
     }
 
-    .btn-scan-again {
-      width: 100%; padding: 12px;
-      background: white; color: #1a73e8;
-      border: 2px solid #1a73e8; border-radius: 12px;
-      font-size: 16px; font-weight: 600; cursor: pointer;
-    }
 
     #error-card {
       background: #fff3f3; border: 1px solid #ffcccc;
@@ -132,28 +112,17 @@
     <small id="error-gtin" style="color:#999"></small>
   </div>
 
-  <div id="product-card">
-    <div class="product-name" id="p-name"></div>
-    <div class="product-meta">
-      <div>
-        <div class="product-article" id="p-article"></div>
-        <div class="product-gtin"   id="p-gtin"></div>
-      </div>
-      <div class="product-price" id="p-price"></div>
-    </div>
-  </div>
+  <button class="btn-print"    id="btn-print-jpg"  style="display:none" onclick="shareAs('jpg')">🖨 JPEG</button>
 
   <div id="label-preview" style="display:none;margin-bottom:12px;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
     <img id="label-preview-img" style="width:100%;display:block;" alt="Предпросмотр этикетки">
   </div>
 
-  <button class="btn-print"      id="btn-print-jpg"  style="display:none" onclick="shareAs('jpg')">🖨 JPEG</button>
-  <button class="btn-print"      id="btn-print-png"  style="display:none" onclick="shareAs('png')">🖨 PNG</button>
-  <button class="btn-print"      id="btn-print-webp" style="display:none" onclick="shareAs('webp')">🖨 WebP</button>
-  <button class="btn-print"      id="btn-print"      style="display:none" onclick="shareAs('pdf')">🖨 PDF</button>
-  <button class="btn-webprint"   id="btn-webprint"   style="display:none" onclick="copyWebPrintUrl()">🔗 Веб-печать Eleph</button>
-  <button class="btn-print-bt"   id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
-  <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
+  <button class="btn-print"    id="btn-print-png"  style="display:none" onclick="shareAs('png')">🖨 PNG</button>
+  <button class="btn-print"    id="btn-print-webp" style="display:none" onclick="shareAs('webp')">🖨 WebP</button>
+  <button class="btn-print"    id="btn-print"      style="display:none" onclick="shareAs('pdf')">🖨 PDF</button>
+  <button class="btn-webprint" id="btn-webprint"   style="display:none" onclick="copyWebPrintUrl()">🔗 Веб-печать Eleph</button>
+  <button class="btn-print-bt" id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
 </div>
 
 <canvas id="label-canvas"></canvas>
@@ -209,17 +178,16 @@
 
     currentProduct = product;
 
-    document.getElementById('p-name').textContent    = product.name;
-    document.getElementById('p-price').textContent   = product.price + ' BYN';
-    document.getElementById('p-article').textContent = 'Арт. ' + product.article;
-    document.getElementById('p-gtin').textContent    = 'GTIN: ' + product.gtin;
-
-    document.getElementById('product-card').style.display   = 'block';
-
     // Генерируем этикетку и сразу скачиваем
     const previewCanvas = buildLabelCanvas(product);
     document.getElementById('label-preview-img').src = previewCanvas.toDataURL('image/jpeg', 0.9);
-    document.getElementById('label-preview').style.display = 'block';
+    document.getElementById('label-preview').style.display  = 'block';
+    document.getElementById('btn-print-jpg').style.display  = 'block';
+    document.getElementById('btn-print-png').style.display  = 'block';
+    document.getElementById('btn-print-webp').style.display = 'block';
+    document.getElementById('btn-print').style.display      = 'block';
+    document.getElementById('btn-webprint').style.display   = 'block';
+    document.getElementById('btn-print-bt').style.display   = 'block';
 
     previewCanvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
@@ -230,29 +198,19 @@
       URL.revokeObjectURL(url);
       setTimeout(scanAgain, 1500);
     }, 'image/jpeg', 0.95);
-
-    document.getElementById('btn-print').style.display      = 'block';
-    document.getElementById('btn-print-jpg').style.display  = 'block';
-    document.getElementById('btn-print-png').style.display  = 'block';
-    document.getElementById('btn-print-webp').style.display = 'block';
-    document.getElementById('btn-webprint').style.display   = 'block';
-    document.getElementById('btn-print-bt').style.display   = 'block';
-    document.getElementById('btn-scan-again').style.display = 'block';
   }
 
-  // ── Сканировать снова ───────────────────────────────────────────
+  // ── Сброс после сканирования ────────────────────────────────────
   function scanAgain() {
     currentProduct = null;
-    document.getElementById('product-card').style.display   = 'none';
     document.getElementById('label-preview').style.display  = 'none';
     document.getElementById('error-card').style.display     = 'none';
-    document.getElementById('btn-print').style.display      = 'none';
     document.getElementById('btn-print-jpg').style.display  = 'none';
     document.getElementById('btn-print-png').style.display  = 'none';
     document.getElementById('btn-print-webp').style.display = 'none';
+    document.getElementById('btn-print').style.display      = 'none';
     document.getElementById('btn-webprint').style.display   = 'none';
     document.getElementById('btn-print-bt').style.display   = 'none';
-    document.getElementById('btn-scan-again').style.display = 'none';
     scannerRunning = true;
     scanner.resume();
   }
