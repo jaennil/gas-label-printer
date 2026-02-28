@@ -72,6 +72,14 @@
 
     .btn-print-bt:disabled { opacity: 0.6; }
 
+    .btn-webprint {
+      width: 100%; padding: 16px;
+      background: #e37400; color: white;
+      border: none; border-radius: 12px;
+      font-size: 18px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px;
+    }
+
     .btn-scan-again {
       width: 100%; padding: 12px;
       background: white; color: #1a73e8;
@@ -135,6 +143,7 @@
   </div>
 
   <button class="btn-print"      id="btn-print"      style="display:none" onclick="printLabel()">🖨 Печать (поделиться)</button>
+  <button class="btn-webprint"   id="btn-webprint"   style="display:none" onclick="copyWebPrintUrl()">🔗 Веб-печать Eleph</button>
   <button class="btn-print-bt"   id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
   <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
 </div>
@@ -199,6 +208,7 @@
 
     document.getElementById('product-card').style.display   = 'block';
     document.getElementById('btn-print').style.display      = 'block';
+    document.getElementById('btn-webprint').style.display   = 'block';
     document.getElementById('btn-print-bt').style.display   = 'block';
     document.getElementById('btn-scan-again').style.display = 'block';
   }
@@ -209,6 +219,7 @@
     document.getElementById('product-card').style.display   = 'none';
     document.getElementById('error-card').style.display     = 'none';
     document.getElementById('btn-print').style.display      = 'none';
+    document.getElementById('btn-webprint').style.display   = 'none';
     document.getElementById('btn-print-bt').style.display   = 'none';
     document.getElementById('btn-scan-again').style.display = 'none';
     scannerRunning = true;
@@ -321,6 +332,20 @@
     }, 'image/jpeg', 0.95);
   }
 
+  // ── Веб-печать Eleph — копирует URL вида ?print=GTIN ────────────
+  function copyWebPrintUrl() {
+    if (!currentProduct) return;
+    const url = location.origin + location.pathname + '?print=' + encodeURIComponent(currentProduct.gtin);
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('btn-webprint');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Скопировано! Вставь в Eleph → Веб-печать';
+      setTimeout(() => { btn.textContent = orig; }, 3000);
+    }).catch(() => {
+      prompt('Скопируй ссылку:', url);
+    });
+  }
+
   // ── Bluetooth прямая печать (58mm ESC/POS) ──────────────────────
   let btPrinter = null;
 
@@ -394,7 +419,20 @@
     document.getElementById('error-card').style.display = 'block';
   }
 
-  startScanner();
+  // ── Режим печати ?print=GTIN — только этикетка, без UI ──────────
+  const _printGtin = new URLSearchParams(location.search).get('print');
+  if (_printGtin) {
+    document.querySelector('.header').style.display = 'none';
+    document.querySelector('.container').style.display = 'none';
+    const canvas = document.getElementById('label-canvas');
+    canvas.style.cssText = 'display:block;width:100%;height:auto';
+    document.body.style.margin = '0';
+    fetch(API_URL + '?gtin=' + encodeURIComponent(_printGtin))
+      .then(r => r.json())
+      .then(p => { if (p.found) buildLabelCanvas(p); });
+  } else {
+    startScanner();
+  }
 </script>
 </body>
 </html>
