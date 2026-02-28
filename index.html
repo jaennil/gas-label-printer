@@ -228,6 +228,7 @@
       a.download = 'label_' + product.gtin + '.jpg';
       a.click();
       URL.revokeObjectURL(url);
+      setTimeout(scanAgain, 1500);
     }, 'image/jpeg', 0.95);
 
     document.getElementById('btn-print').style.display      = 'block';
