@@ -143,9 +143,14 @@
     </div>
   </div>
 
+  <div id="label-preview" style="display:none;margin-bottom:12px;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <img id="label-preview-img" style="width:100%;display:block;" alt="Предпросмотр этикетки">
+  </div>
+
   <button class="btn-print"      id="btn-print"      style="display:none" onclick="shareAs('pdf')">🖨 PDF</button>
   <button class="btn-print"      id="btn-print-jpg"  style="display:none" onclick="shareAs('jpg')">🖨 JPEG</button>
   <button class="btn-print"      id="btn-print-png"  style="display:none" onclick="shareAs('png')">🖨 PNG</button>
+  <button class="btn-print"      id="btn-print-webp" style="display:none" onclick="shareAs('webp')">🖨 WebP</button>
   <button class="btn-webprint"   id="btn-webprint"   style="display:none" onclick="copyWebPrintUrl()">🔗 Веб-печать Eleph</button>
   <button class="btn-print-bt"   id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
   <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
@@ -210,9 +215,16 @@
     document.getElementById('p-gtin').textContent    = 'GTIN: ' + product.gtin;
 
     document.getElementById('product-card').style.display   = 'block';
+
+    // Показываем предпросмотр этикетки
+    const previewCanvas = buildLabelCanvas(product);
+    document.getElementById('label-preview-img').src = previewCanvas.toDataURL('image/jpeg', 0.9);
+    document.getElementById('label-preview').style.display = 'block';
+
     document.getElementById('btn-print').style.display      = 'block';
     document.getElementById('btn-print-jpg').style.display  = 'block';
     document.getElementById('btn-print-png').style.display  = 'block';
+    document.getElementById('btn-print-webp').style.display = 'block';
     document.getElementById('btn-webprint').style.display   = 'block';
     document.getElementById('btn-print-bt').style.display   = 'block';
     document.getElementById('btn-scan-again').style.display = 'block';
@@ -222,10 +234,12 @@
   function scanAgain() {
     currentProduct = null;
     document.getElementById('product-card').style.display   = 'none';
+    document.getElementById('label-preview').style.display  = 'none';
     document.getElementById('error-card').style.display     = 'none';
     document.getElementById('btn-print').style.display      = 'none';
     document.getElementById('btn-print-jpg').style.display  = 'none';
     document.getElementById('btn-print-png').style.display  = 'none';
+    document.getElementById('btn-print-webp').style.display = 'none';
     document.getElementById('btn-webprint').style.display   = 'none';
     document.getElementById('btn-print-bt').style.display   = 'none';
     document.getElementById('btn-scan-again').style.display = 'none';
@@ -335,6 +349,9 @@
     } else if (fmt === 'png') {
       blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
       filename = 'label.png'; mime = 'image/png';
+    } else if (fmt === 'webp') {
+      blob = await new Promise(res => canvas.toBlob(res, 'image/webp', 0.95));
+      filename = 'label.webp'; mime = 'image/webp';
     } else {
       blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
       filename = 'label.jpg'; mime = 'image/jpeg';
