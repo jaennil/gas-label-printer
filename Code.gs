@@ -1,7 +1,16 @@
-const SPREADSHEET_ID = '1KmjpUXv2HQXJ0B-opgWqUsgLEFOP_gz7k5zifIh7UHk';
+const SPREADSHEET_ID = '1MDW1RcTaXptaPLeK2pHcLJ763YxOl2iiMgdFwn9iH1U';
 
 function doGet(e) {
   const gtin = e && e.parameter && e.parameter.gtin;
+
+  // дебаг: ?debug=1 — вернуть первые 3 строки таблицы
+  if (e && e.parameter && e.parameter.debug) {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheets()[0];
+    const data = sheet.getDataRange().getValues().slice(0, 4);
+    return ContentService
+      .createTextOutput(JSON.stringify({ rows: data }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   if (!gtin) {
     return ContentService
