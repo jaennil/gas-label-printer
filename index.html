@@ -143,7 +143,9 @@
     </div>
   </div>
 
-  <button class="btn-print"      id="btn-print"      style="display:none" onclick="printLabel()">🖨 Печать (поделиться)</button>
+  <button class="btn-print"      id="btn-print"      style="display:none" onclick="shareAs('pdf')">🖨 PDF</button>
+  <button class="btn-print"      id="btn-print-jpg"  style="display:none" onclick="shareAs('jpg')">🖨 JPEG</button>
+  <button class="btn-print"      id="btn-print-png"  style="display:none" onclick="shareAs('png')">🖨 PNG</button>
   <button class="btn-webprint"   id="btn-webprint"   style="display:none" onclick="copyWebPrintUrl()">🔗 Веб-печать Eleph</button>
   <button class="btn-print-bt"   id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
   <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
@@ -209,6 +211,8 @@
 
     document.getElementById('product-card').style.display   = 'block';
     document.getElementById('btn-print').style.display      = 'block';
+    document.getElementById('btn-print-jpg').style.display  = 'block';
+    document.getElementById('btn-print-png').style.display  = 'block';
     document.getElementById('btn-webprint').style.display   = 'block';
     document.getElementById('btn-print-bt').style.display   = 'block';
     document.getElementById('btn-scan-again').style.display = 'block';
@@ -220,6 +224,8 @@
     document.getElementById('product-card').style.display   = 'none';
     document.getElementById('error-card').style.display     = 'none';
     document.getElementById('btn-print').style.display      = 'none';
+    document.getElementById('btn-print-jpg').style.display  = 'none';
+    document.getElementById('btn-print-png').style.display  = 'none';
     document.getElementById('btn-webprint').style.display   = 'none';
     document.getElementById('btn-print-bt').style.display   = 'none';
     document.getElementById('btn-scan-again').style.display = 'none';
@@ -315,14 +321,26 @@
   }
 
   // ── Печать / Шаринг ─────────────────────────────────────────────
-  async function printLabel() {
+  async function shareAs(fmt) {
     if (!currentProduct) return;
     const canvas = buildLabelCanvas(currentProduct);
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [50, 60] });
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 50, 60);
-    const blob = pdf.output('blob');
-    const file = new File([blob], 'label.pdf', { type: 'application/pdf' });
+    let blob, filename, mime;
+
+    if (fmt === 'pdf') {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [50, 60] });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 50, 60);
+      blob = pdf.output('blob');
+      filename = 'label.pdf'; mime = 'application/pdf';
+    } else if (fmt === 'png') {
+      blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      filename = 'label.png'; mime = 'image/png';
+    } else {
+      blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+      filename = 'label.jpg'; mime = 'image/jpeg';
+    }
+
+    const file = new File([blob], filename, { type: mime });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: currentProduct.name });
@@ -331,7 +349,7 @@
     }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'label.pdf'; a.click();
+    a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
 
