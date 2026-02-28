@@ -216,10 +216,19 @@
 
     document.getElementById('product-card').style.display   = 'block';
 
-    // Показываем предпросмотр этикетки
+    // Генерируем этикетку и сразу скачиваем
     const previewCanvas = buildLabelCanvas(product);
     document.getElementById('label-preview-img').src = previewCanvas.toDataURL('image/jpeg', 0.9);
     document.getElementById('label-preview').style.display = 'block';
+
+    previewCanvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'label_' + product.gtin + '.jpg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg', 0.95);
 
     document.getElementById('btn-print').style.display      = 'block';
     document.getElementById('btn-print-jpg').style.display  = 'block';
