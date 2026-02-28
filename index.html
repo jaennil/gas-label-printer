@@ -62,6 +62,16 @@
       cursor: pointer; margin-bottom: 10px;
     }
 
+    .btn-print-bt {
+      width: 100%; padding: 16px;
+      background: #1e8c3a; color: white;
+      border: none; border-radius: 12px;
+      font-size: 18px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px;
+    }
+
+    .btn-print-bt:disabled { opacity: 0.6; }
+
     .btn-scan-again {
       width: 100%; padding: 12px;
       background: white; color: #1a73e8;
@@ -124,7 +134,8 @@
     </div>
   </div>
 
-  <button class="btn-print"      id="btn-print"      style="display:none" onclick="printLabel()">🖨 Печать</button>
+  <button class="btn-print"      id="btn-print"      style="display:none" onclick="printLabel()">🖨 Печать (поделиться)</button>
+  <button class="btn-print-bt"   id="btn-print-bt"   style="display:none" onclick="printBluetooth()">🔵 Bluetooth печать</button>
   <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
 </div>
 
@@ -188,6 +199,7 @@
 
     document.getElementById('product-card').style.display   = 'block';
     document.getElementById('btn-print').style.display      = 'block';
+    document.getElementById('btn-print-bt').style.display   = 'block';
     document.getElementById('btn-scan-again').style.display = 'block';
   }
 
@@ -197,6 +209,7 @@
     document.getElementById('product-card').style.display   = 'none';
     document.getElementById('error-card').style.display     = 'none';
     document.getElementById('btn-print').style.display      = 'none';
+    document.getElementById('btn-print-bt').style.display   = 'none';
     document.getElementById('btn-scan-again').style.display = 'none';
     scannerRunning = true;
     scanner.resume();
@@ -306,6 +319,62 @@
       a.href = url; a.download = 'label.jpg'; a.click();
       URL.revokeObjectURL(url);
     }, 'image/jpeg', 0.95);
+  }
+
+  // ── Bluetooth прямая печать (58mm ESC/POS) ──────────────────────
+  let btPrinter = null;
+
+  async function printBluetooth() {
+    if (!currentProduct) return;
+    const btn = document.getElementById('btn-print-bt');
+    const orig = btn.textContent;
+    btn.textContent = 'Подключение...';
+    btn.disabled = true;
+
+    try {
+      const [{ WebBluetoothReceiptPrinter }, { default: ReceiptPrinterEncoder }] = await Promise.all([
+        import('https://esm.sh/@point-of-sale/webbluetooth-receipt-printer'),
+        import('https://esm.sh/@point-of-sale/receipt-printer-encoder'),
+      ]);
+
+      const src = buildLabelCanvas(currentProduct);
+
+      // Масштабируем под ширину принтера (384px = 48мм при 203dpi)
+      const pw = 384;
+      const ph = Math.ceil(src.height * pw / src.width / 8) * 8;
+      const sc = document.createElement('canvas');
+      sc.width = pw; sc.height = ph;
+      const sctx = sc.getContext('2d');
+      sctx.fillStyle = '#fff';
+      sctx.fillRect(0, 0, pw, ph);
+      sctx.drawImage(src, 0, 0, pw, ph);
+
+      if (!btPrinter) btPrinter = new WebBluetoothReceiptPrinter();
+
+      const doPrint = () => {
+        const encoder = new ReceiptPrinterEncoder({ width: 48 });
+        const data = encoder
+          .initialize()
+          .image(sc, pw, ph, 'threshold')
+          .newline()
+          .newline()
+          .encode();
+        btPrinter.print(data);
+        btn.textContent = '✓ Напечатано';
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+      };
+
+      if (btPrinter.connected) {
+        doPrint();
+      } else {
+        btPrinter.addEventListener('connected', doPrint, { once: true });
+        await btPrinter.connect();
+      }
+    } catch (e) {
+      alert('Bluetooth ошибка: ' + e.message);
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
   }
 
   // ── Утилиты ─────────────────────────────────────────────────────
