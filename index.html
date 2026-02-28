@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Сканер этикеток</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+    .header {
+      background: #1a73e8;
+      color: white;
+      padding: 16px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .container { padding: 16px; max-width: 480px; margin: 0 auto; }
+
+    #scanner-box {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+    }
+
+    #reader { width: 100%; }
+    #reader video { width: 100% !important; }
+    #reader img   { display: none !important; }
+
+    .scan-hint {
+      text-align: center;
+      padding: 10px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    #product-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .product-name    { font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.4; margin-bottom: 8px; }
+    .product-meta    { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    .product-price   { font-size: 28px; font-weight: 700; color: #1a73e8; }
+    .product-article { font-size: 13px; color: #999; }
+    .product-gtin    { font-size: 12px; color: #bbb; margin-top: 4px; }
+
+    .btn-print {
+      width: 100%; padding: 16px;
+      background: #1a73e8; color: white;
+      border: none; border-radius: 12px;
+      font-size: 18px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px;
+    }
+
+    .btn-scan-again {
+      width: 100%; padding: 12px;
+      background: white; color: #1a73e8;
+      border: 2px solid #1a73e8; border-radius: 12px;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+    }
+
+    #error-card {
+      background: #fff3f3; border: 1px solid #ffcccc;
+      border-radius: 12px; padding: 20px;
+      text-align: center; color: #cc0000;
+      display: none; margin-bottom: 16px;
+    }
+
+    #loading {
+      text-align: center; padding: 20px; color: #666; display: none;
+    }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 4px solid #e0e0e0; border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #label-canvas { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="header">Сканер этикеток</div>
+
+<div class="container">
+  <div id="scanner-box">
+    <div id="reader"></div>
+    <div class="scan-hint">Наведите камеру на штрихкод</div>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    Ищем товар...
+  </div>
+
+  <div id="error-card">
+    <span id="error-msg">Товар не найден</span><br>
+    <small id="error-gtin" style="color:#999"></small>
+  </div>
+
+  <div id="product-card">
+    <div class="product-name" id="p-name"></div>
+    <div class="product-meta">
+      <div>
+        <div class="product-article" id="p-article"></div>
+        <div class="product-gtin"   id="p-gtin"></div>
+      </div>
+      <div class="product-price" id="p-price"></div>
+    </div>
+  </div>
+
+  <button class="btn-print"      id="btn-print"      style="display:none" onclick="printLabel()">🖨 Печать</button>
+  <button class="btn-scan-again" id="btn-scan-again" style="display:none" onclick="scanAgain()">Сканировать снова</button>
+</div>
+
+<canvas id="label-canvas"></canvas>
+
+<script>
+  // ← ВСТАВЬ СЮДА СВОЙ URL после деплоя Apps Script
+  const API_URL = 'APPS_SCRIPT_URL_HERE';
+
+  let currentProduct = null;
+  let scanner = null;
+  let scannerRunning = false;
+
+  // ── Запуск сканера ──────────────────────────────────────────────
+  function startScanner() {
+    scanner = new Html5Qrcode("reader");
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 130 } },
+      onScanSuccess
+    ).then(() => {
+      scannerRunning = true;
+    }).catch(err => {
+      document.getElementById('scanner-box').innerHTML =
+        '<p style="padding:20px;color:red;text-align:center">Нет доступа к камере: ' + err + '</p>';
+    });
+  }
+
+  // ── Успешное сканирование ───────────────────────────────────────
+  function onScanSuccess(decodedText) {
+    if (!scannerRunning) return;
+    scannerRunning = false;
+    scanner.pause();
+    showLoading();
+
+    fetch(API_URL + '?gtin=' + encodeURIComponent(decodedText))
+      .then(r => r.json())
+      .then(onProductFound)
+      .catch(err => {
+        hideLoading();
+        showError('Ошибка сети: ' + err, '');
+        document.getElementById('btn-scan-again').style.display = 'block';
+      });
+  }
+
+  function onProductFound(product) {
+    hideLoading();
+
+    if (!product.found) {
+      showError('Товар не найден', 'GTIN: ' + (product.gtin || '—'));
+      document.getElementById('btn-scan-again').style.display = 'block';
+      return;
+    }
+
+    currentProduct = product;
+
+    document.getElementById('p-name').textContent    = product.name;
+    document.getElementById('p-price').textContent   = product.price + ' BYN';
+    document.getElementById('p-article').textContent = 'Арт. ' + product.article;
+    document.getElementById('p-gtin').textContent    = 'GTIN: ' + product.gtin;
+
+    document.getElementById('product-card').style.display   = 'block';
+    document.getElementById('btn-print').style.display      = 'block';
+    document.getElementById('btn-scan-again').style.display = 'block';
+  }
+
+  // ── Сканировать снова ───────────────────────────────────────────
+  function scanAgain() {
+    currentProduct = null;
+    document.getElementById('product-card').style.display   = 'none';
+    document.getElementById('error-card').style.display     = 'none';
+    document.getElementById('btn-print').style.display      = 'none';
+    document.getElementById('btn-scan-again').style.display = 'none';
+    scannerRunning = true;
+    scanner.resume();
+  }
+
+  // ── Генерация этикетки — 500×600px (портрет 50×60мм) ───────────
+  function buildLabelCanvas(product) {
+    const canvas = document.getElementById('label-canvas');
+    canvas.width  = 500;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const pad = 16;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, W - 8, H - 8);
+
+    // Название (2 строки) + артикул справа
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 36px sans-serif';
+    const nameLines = splitLines(ctx, product.name, W - pad * 2 - 90, 2);
+    ctx.fillText(nameLines[0] || '', pad, 50);
+    ctx.fillText(nameLines[1] || '', pad, 92);
+
+    ctx.fillStyle = '#555';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(product.article, W - pad, 50);
+    ctx.textAlign = 'left';
+
+    // Разделитель
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pad, 112); ctx.lineTo(W - pad, 112); ctx.stroke();
+
+    // Цена большая
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 130px sans-serif';
+    const priceStr = String(product.price);
+    ctx.fillText(priceStr, pad, 290);
+    const priceW = ctx.measureText(priceStr).width;
+    ctx.font = 'bold 52px sans-serif';
+    ctx.fillText('руб', pad + priceW + 8, 290);
+
+    // Разделитель
+    ctx.beginPath(); ctx.moveTo(pad, 320); ctx.lineTo(W - pad, 320); ctx.stroke();
+
+    // Изготовитель + страна
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(product.manufacturer, pad, 370);
+    ctx.textAlign = 'right';
+    ctx.fillText(product.country, W - pad, 370);
+    ctx.textAlign = 'left';
+
+    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 395); ctx.lineTo(W - pad, 395); ctx.stroke();
+
+    // Импортер
+    ctx.fillStyle = '#333';
+    ctx.font = '26px sans-serif';
+    ctx.fillText('Импортер:', pad, 435);
+    ctx.font = 'bold 26px sans-serif';
+    ctx.fillText('ООО Дом Интерьера', pad, 468);
+
+    return canvas;
+  }
+
+  function splitLines(ctx, text, maxWidth, maxLines) {
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+    for (let i = 0; i < words.length; i++) {
+      const test = line + (line ? ' ' : '') + words[i];
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        if (lines.length >= maxLines) {
+          let last = words.slice(i).join(' ');
+          while (ctx.measureText(last + '…').width > maxWidth && last.length > 0)
+            last = last.slice(0, -1);
+          lines[lines.length - 1] = lines[lines.length - 1] + ' ' + last + '…';
+          return lines;
+        }
+        line = words[i];
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // ── Печать / Шаринг ─────────────────────────────────────────────
+  function printLabel() {
+    if (!currentProduct) return;
+    const canvas = buildLabelCanvas(currentProduct);
+    canvas.toBlob(async blob => {
+      const file = new File([blob], 'label.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: currentProduct.name });
+          return;
+        } catch (e) {}
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'label.png'; a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }
+
+  // ── Утилиты ─────────────────────────────────────────────────────
+  function showLoading() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('scanner-box').style.display = 'none';
+  }
+
+  function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('scanner-box').style.display = 'block';
+  }
+
+  function showError(msg, sub) {
+    document.getElementById('error-msg').textContent  = msg;
+    document.getElementById('error-gtin').textContent = sub;
+    document.getElementById('error-card').style.display = 'block';
+  }
+
+  startScanner();
+</script>
+</body>
+</html>
