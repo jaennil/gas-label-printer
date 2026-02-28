@@ -174,7 +174,7 @@
     hideLoading();
 
     if (!product.found) {
-      showError('Товар не найден', 'GTIN: ' + (product.gtin || '—'));
+      showError('Товар не найден', 'Искали: ' + (product.searched || '—'));
       document.getElementById('btn-scan-again').style.display = 'block';
       return;
     }

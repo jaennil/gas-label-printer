@@ -34,5 +34,5 @@ function lookupGTIN(gtin) {
     }
   }
 
-  return { found: false };
+  return { found: false, searched: gtin };
 }
