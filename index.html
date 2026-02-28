@@ -332,7 +332,7 @@
     btn.disabled = true;
 
     try {
-      const [{ WebBluetoothReceiptPrinter }, { default: ReceiptPrinterEncoder }] = await Promise.all([
+      const [{ default: WebBluetoothReceiptPrinter }, { default: ReceiptPrinterEncoder }] = await Promise.all([
         import('https://esm.sh/@point-of-sale/webbluetooth-receipt-printer'),
         import('https://esm.sh/@point-of-sale/receipt-printer-encoder'),
       ]);
