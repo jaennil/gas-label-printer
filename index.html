@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Сканер этикеток</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #f0f2f5; min-height: 100vh; }
@@ -314,22 +315,24 @@
   }
 
   // ── Печать / Шаринг ─────────────────────────────────────────────
-  function printLabel() {
+  async function printLabel() {
     if (!currentProduct) return;
     const canvas = buildLabelCanvas(currentProduct);
-    canvas.toBlob(async blob => {
-      const file = new File([blob], 'label.jpg', { type: 'image/jpeg' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: currentProduct.name });
-          return;
-        } catch (e) {}
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'label.jpg'; a.click();
-      URL.revokeObjectURL(url);
-    }, 'image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [50, 60] });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 50, 60);
+    const blob = pdf.output('blob');
+    const file = new File([blob], 'label.pdf', { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: currentProduct.name });
+        return;
+      } catch (e) {}
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'label.pdf'; a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Веб-печать Eleph — копирует URL вида ?print=GTIN ────────────
