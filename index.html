@@ -22,6 +22,7 @@
     .container { padding: 16px; max-width: 480px; margin: 0 auto; }
 
     #scanner-box {
+      position: relative;
       background: white;
       border-radius: 12px;
       overflow: hidden;
@@ -76,15 +77,25 @@
     }
 
     #loading {
-      text-align: center; padding: 20px; color: #666; display: none;
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 15px;
+      z-index: 10;
     }
 
     .spinner {
       width: 36px; height: 36px;
-      border: 4px solid #e0e0e0; border-top-color: #1a73e8;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: white;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
-      margin: 0 auto 10px;
+      margin-bottom: 10px;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -100,11 +111,10 @@
   <div id="scanner-box">
     <div id="reader"></div>
     <div class="scan-hint">Наведите камеру на штрихкод</div>
-  </div>
-
-  <div id="loading">
-    <div class="spinner"></div>
-    Ищем товар...
+    <div id="loading">
+      <div class="spinner"></div>
+      Ищем товар...
+    </div>
   </div>
 
   <div id="error-card">
@@ -154,7 +164,6 @@
   function onScanSuccess(decodedText) {
     if (!scannerRunning) return;
     scannerRunning = false;
-    scanner.pause();
     showLoading();
 
     fetch(API_URL + '?gtin=' + encodeURIComponent(decodedText))
@@ -163,7 +172,7 @@
       .catch(err => {
         hideLoading();
         showError('Ошибка сети: ' + err, '');
-        document.getElementById('btn-scan-again').style.display = 'block';
+        scannerRunning = true;
       });
   }
 
@@ -172,13 +181,13 @@
 
     if (!product.found) {
       showError('Товар не найден', 'Искали: ' + (product.searched || '—'));
-      document.getElementById('btn-scan-again').style.display = 'block';
+      scannerRunning = true;
       return;
     }
 
     currentProduct = product;
+    document.getElementById('error-card').style.display     = 'none';
 
-    // Генерируем этикетку и сразу скачиваем
     const previewCanvas = buildLabelCanvas(product);
     document.getElementById('label-preview-img').src = previewCanvas.toDataURL('image/jpeg', 0.9);
     document.getElementById('label-preview').style.display  = 'block';
@@ -196,23 +205,8 @@
       a.download = 'label_' + product.gtin + '.jpg';
       a.click();
       URL.revokeObjectURL(url);
-      setTimeout(scanAgain, 1500);
+      scannerRunning = true;
     }, 'image/jpeg', 0.95);
-  }
-
-  // ── Сброс после сканирования ────────────────────────────────────
-  function scanAgain() {
-    currentProduct = null;
-    document.getElementById('label-preview').style.display  = 'none';
-    document.getElementById('error-card').style.display     = 'none';
-    document.getElementById('btn-print-jpg').style.display  = 'none';
-    document.getElementById('btn-print-png').style.display  = 'none';
-    document.getElementById('btn-print-webp').style.display = 'none';
-    document.getElementById('btn-print').style.display      = 'none';
-    document.getElementById('btn-webprint').style.display   = 'none';
-    document.getElementById('btn-print-bt').style.display   = 'none';
-    scannerRunning = true;
-    scanner.resume();
   }
 
   // ── Генерация этикетки — 500×600px (портрет 50×60мм) ───────────
@@ -410,13 +404,11 @@
 
   // ── Утилиты ─────────────────────────────────────────────────────
   function showLoading() {
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('scanner-box').style.display = 'none';
+    document.getElementById('loading').style.display = 'flex';
   }
 
   function hideLoading() {
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('scanner-box').style.display = 'block';
   }
 
   function showError(msg, sub) {
